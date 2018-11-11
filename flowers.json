@@ -1,0 +1,46 @@
+{
+    "flowers": [
+        {
+            "color": "blue",
+            "emoji": "<:blueflower:505851036058124289>",
+            "url": "https://vignette.wikia.nocookie.net/runescape2/images/d/d6/Blue_flowers_detail.png",
+            "value": "cold"
+        },
+        {
+            "color": "orange",
+            "emoji": "<:orangeflower:505851036322496523>",
+            "url": "https://vignette.wikia.nocookie.net/runescape2/images/9/99/Orange_flowers_detail.png",
+            "value": "hot"
+        },
+        {
+            "color": "pastel",
+            "emoji": "<:pastelflower:505851036267708417>",
+            "url": "https://vignette.wikia.nocookie.net/runescape2/images/5/55/Flowers_%28pastel%29_detail.png",
+            "value": "cold"
+        },
+        {
+            "color": "purple",
+            "emoji": "<:purpleflower:505851035932426251>",
+            "url": "https://vignette.wikia.nocookie.net/runescape2/images/3/3d/Purple_flowers_detail.png",
+            "value": "cold"
+        },
+        {
+            "color": "rainbow",
+            "emoji": "<:rainbowflower:505851036184084481>",
+            "url": "https://vignette.wikia.nocookie.net/runescape2/images/f/fd/Flowers_%28mixed%29_detail.png",
+            "value": "rainbow"
+        },
+        {
+            "color": "red",
+            "emoji": "<:redflower:505851036330885120>",
+            "url": "https://vignette.wikia.nocookie.net/runescape2/images/6/6c/Red_flowers_detail.png",
+            "value": "hot"
+        },
+        {
+            "color": "yellow",
+            "emoji": "<:yellowflower:505851036578086922>",
+            "url": "https://vignette.wikia.nocookie.net/runescape2/images/a/a6/Yellow_flowers_detail.png",
+            "value": "hot"
+        }
+    ]
+}
