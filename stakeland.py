@@ -8,6 +8,7 @@ import secrets
 import json
 from datetime import datetime, timedelta
 from pytz import timezone
+from decimal import Decimal
 import asyncio
 import operator
 import time
@@ -24,8 +25,8 @@ logging.basicConfig(level='INFO')
 BOT_PREFIX = os.environ['prefix']  # -Prfix is need to declare a Command in discord ex: !pizza "!" being the Prefix
 TOKEN = os.environ['token']  # The token is also substituted for security reasons
 DATABASE_URL = os.environ['DATABASE_URL']
-rs3_osrs_rate = float(os.environ['rs3_osrs_rate'])
-osrs_rs3_rate = float(os.environ['osrs_rs3_rate'])
+rs3_osrs_rate = Decimal(os.environ['rs3_osrs_rate'])
+osrs_rs3_rate = Decimal(os.environ['osrs_rs3_rate'])
 back_card = "<:backcard:509135629301579787>"
 
 
@@ -37,6 +38,21 @@ current_dd_games = []
 current_swaps = []
 current_flower_games = []
 current_bj_games = []
+current_high_low_games = []
+jackpot_pot = 0
+jackpot_users = []
+is_current_jackpot = False
+jackpot_currency = "07"
+more_than_one = False
+
+# real
+# stakeland_public = 478073843823673362
+# stakeland_seed = 510263062293512192
+
+# test
+stakeland_public = 405118958446968839
+stakeland_seed = 405118958446968839
+
 cards_json = []
 client_seed = ""
 server_seed = ""
@@ -83,6 +99,10 @@ def is_staky(ctx):
     return ctx.author.id == 424233412673536000 or ctx.author.id == 209081432956600320
 
 
+def is_stakeland(ctx):
+    return ctx.message.guild.id == 419994398122704896
+
+
 async def add_member(user_id: int, rs3: int, osrs: int):
     async with bot.db.acquire() as conn:
         await conn.execute('''
@@ -101,10 +121,7 @@ async def get_value(user_id: int, value: str):
         async with bot.db.acquire() as conn:
             returned = await conn.fetchrow("SELECT * FROM rsmoney WHERE id=$1", user_id)
 
-    if value == "privacy":
-        return returned[value]
-    else:
-        return returned[value]
+    return returned[value]
 
 
 async def update_money(user_id: int, amount: int, currency: str):
@@ -134,30 +151,30 @@ async def update_money(user_id: int, amount: int, currency: str):
         elif currency == "profit_osrs":
             await conn.execute("UPDATE server SET profit_osrs = profit_osrs + $1", amount)
             async with bot.db.acquire() as con:
-                await con.execute("UPDATE server SET profit_osrs_total = profit_osrs + $1", amount)
+                await con.execute("UPDATE server SET profit_osrs_total = profit_osrs_total + $1", amount)
         elif currency == "profit_rs3":
             await conn.execute("UPDATE server SET profit_rs3 = profit_rs3 + $1", amount)
             async with bot.db.acquire() as con:
-                await con.execute("UPDATE server SET profit_rs3_total = profit_osrs + $1", amount)
+                await con.execute("UPDATE server SET profit_rs3_total = profit_rs3_total + $1", amount)
         elif currency == "bets":
             await conn.execute("UPDATE rsmoney SET bets = bets + $1 WHERE id=$2", amount, user_id)
 
 
 def formatok(amount: str):
     if (amount[-1:]).lower() == "m":
-        return int(float(str(amount[:-1]))*100)
+        return int(Decimal(amount[:-1]) * 100)
     elif (amount[-1:]).lower() == "k":
-        return int(str(amount[:-1]))/10
+        return int(Decimal(amount[:-1]) / 10)
     elif (amount[-1:]).lower() == "b":
-        return int(float(str(amount[:-1]))*100_000)
+        return int(Decimal(amount[:-1]) * 100_000)
     else:
-        return int(float(amount)*100)
+        return int(Decimal(amount) * 100)
 
 
 def formatfromk(amount: int):
     amount = round((amount * 0.01), 2)
 
-    if isinstance(amount, float):
+    if isinstance(amount, Decimal):
         if amount.is_integer():
             amount = int(amount)
     return str(amount)+"M"
@@ -199,10 +216,14 @@ def froll():
     return int(roll_result + 1)
 
 
-async def dice(ctx, currency: str, amount: str, win_chance: int, payout: float):
+async def dice(ctx, currency: str, amount: str, win_chance: int, payout: Decimal):
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
     amount = formatok(amount)
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
     if currency != "07" and currency != "rs3":
         return
 
@@ -254,7 +275,7 @@ async def dice(ctx, currency: str, amount: str, win_chance: int, payout: float):
         return await ctx.send(embed=embed)
 
 
-async def flower_win(ctx, flower, amount, currency, payout, ):
+async def flower_win(ctx, flower, amount, currency, payout):
     tmp_currency = currency
     if currency == "07":
         tmp_currency = "osrs"
@@ -271,7 +292,7 @@ async def flower_win(ctx, flower, amount, currency, payout, ):
 async def my_background_task():
     global client_seed, server_seed, server_seed_hash, nonce
     await bot.wait_until_ready()
-    channel = bot.get_channel(497476667665678337)  # public
+    channel = bot.get_channel(stakeland_public)  # public
     while not bot.is_closed():
         old_hash = server_seed_hash
         old_server_seed = server_seed
@@ -284,7 +305,7 @@ async def my_background_task():
         # async with bot.db.acquire() as conn:
         #     await conn.execute('''UPDATE server SET server_seed = $1, server_seed_hash = $2, client_seed = $3,
         #         nonce = $4''', server_seed, server_seed_hash, client_seed, nonce)
-        seeds = bot.get_channel(498363312736698379)  # seeds
+        seeds = bot.get_channel(stakeland_seed)  # seeds
         embed = discord.Embed(color=0x0099cc)
         embed.add_field(name="Provably Fair Seeds", value=f"**Previous hash:** {old_hash}\n"
                                                           f"**Previous Seed:** {old_server_seed}\n"
@@ -322,15 +343,15 @@ async def my_background_task():
         await asyncio.sleep(600)
 
 
-# @bot.listen()
-# async def on_command_error(ctx, error):
-#     if isinstance(error, commands.errors.MissingRequiredArgument) or \
-#             isinstance(error, commands.errors.BadArgument):
-#         name = ctx.author.display_name
-#         embed = discord.Embed()
-#         embed.set_author(name=name)
-#         embed.add_field(name="Error", value=f'**Command usage:** {ctx.prefix}{ctx.command.signature}')
-#         await ctx.send(embed=embed)
+@bot.listen()
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument) or \
+            isinstance(error, commands.errors.BadArgument):
+        name = ctx.author.display_name
+        embed = discord.Embed()
+        embed.set_author(name=name)
+        embed.add_field(name="Error", value=f'**Command usage:** {ctx.prefix}{ctx.command.signature}')
+        await ctx.send(embed=embed)
 
 
 REACT = 'kappa'
@@ -372,12 +393,12 @@ async def ping(ctx):
 @bot.command()
 async def roll(ctx, max_roll: int):
     embed = discord.Embed(color=0x0099cc)
-    embed.add_field(name="Custom Roll", value=f"{secrets.randbelow(max_roll + 1)}\nRolled a random number between "
+    embed.add_field(name="Custom Roll", value=f"{secrets.randbelow(max_roll) + 1}\nRolled a random number between "
                                               f"1-{max_roll}")
     await ctx.send(embed=embed)
 
 
-@bot.command(aliases=["$", "wallet"])
+@bot.command(aliases=["$", "wallet", "bal", "balance", "£"])
 async def w(ctx, member: discord.Member = None):
     user = ctx.author
 
@@ -428,7 +449,7 @@ async def privacy(ctx, privacy_value: str):
 
 @bot.command()
 @commands.check(is_staky)
-async def setrates(ctx, rs3: float, osrs: float):
+async def setrates(ctx, rs3: Decimal, osrs: Decimal):
     global rs3_osrs_rate, osrs_rs3_rate
     os.environ['rs3_osrs_rate'] = str(rs3)
     os.environ['osrs_rs3_rate'] = str(osrs)
@@ -440,9 +461,13 @@ async def setrates(ctx, rs3: float, osrs: float):
 @bot.command()
 @commands.check(is_staky)
 async def updateall(ctx, currency: str, amount: str):
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
     amount = formatok(amount)
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
     if currency != "07" and currency != "rs3":
         return
     for member in ctx.message.guild.members:
@@ -491,9 +516,9 @@ async def transfer(ctx, currency: str, members: commands.Greedy[discord.Member],
 
     await update_money(ctx.author.id, -(amount * len(members)), currency)
     message = ""
+    new_amount = formatfromk(amount)
     for member in members:
         await update_money(member.id, amount, currency)
-        new_amount = formatfromk(amount)
         message += f"{member.mention} "
 
     embed = discord.Embed(color=0x0099cc)
@@ -506,44 +531,48 @@ async def transfer(ctx, currency: str, members: commands.Greedy[discord.Member],
 
 @bot.command(name="40")
 async def dice_40(ctx, currency: str, amount: str):
-    return await dice(ctx, currency, amount, 40, 1.5)
+    return await dice(ctx, currency, amount, 40, Decimal('1.5'))
 
 
 @bot.command(name="45")
 async def dice_45(ctx, currency: str, amount: str):
-    return await dice(ctx, currency, amount, 45, 1.55)
+    return await dice(ctx, currency, amount, 45, Decimal('1.55'))
 
 
 @bot.command(name="50")
 async def dice_50(ctx, currency: str, amount: str):
-    return await dice(ctx, currency, amount, 50, 1.9)
+    return await dice(ctx, currency, amount, 50, Decimal('1.9'))
 
 
 @bot.command(name="54")
 async def dice_54(ctx, currency: str, amount: str):
-    return await dice(ctx, currency, amount, 54, 2)
+    return await dice(ctx, currency, amount, 54, Decimal('2'))
 
 
 @bot.command(name="75")
 async def dice_75(ctx, currency: str, amount: str):
-    return await dice(ctx, currency, amount, 75, 3)
+    return await dice(ctx, currency, amount, 75, Decimal('3'))
 
 
 @bot.command(name="90")
 async def dice_90(ctx, currency: str, amount: str):
-    return await dice(ctx, currency, amount, 90, 7)
+    return await dice(ctx, currency, amount, 90, Decimal('7'))
 
 
 @bot.command(name="95")
 async def dice_95(ctx, currency: str, amount: str):
-    return await dice(ctx, currency, amount, 95, 10)
+    return await dice(ctx, currency, amount, 95, Decimal('10'))
 
 
 @bot.command(aliases=["under"])
 async def over(ctx, currency: str, amount: str):
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
     amount = formatok(amount)
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
     if currency != "07" and currency != "rs3":
         return
 
@@ -577,7 +606,7 @@ async def over(ctx, currency: str, amount: str):
 
         embed = discord.Embed(color=0x00ff00)
         embed.set_author(name=name)
-        embed.add_field(name=f"Over/Underx1.8 Dicing", value=f"Rolled {value} out of 100. You **won** {amount} "
+        embed.add_field(name=f"Over/Underx1.9 Dicing", value=f"Rolled {value} out of 100. You **won** {amount} "
                                                              f"{currency}.")
         embed.set_footer(text=f"Client Seed: {client_seed}\nNonce: {nonce - 1}")
         return await ctx.send(embed=embed)
@@ -589,7 +618,7 @@ async def over(ctx, currency: str, amount: str):
 
         embed = discord.Embed(color=0xff0000)
         embed.set_author(name=name)
-        embed.add_field(name=f"Over/Underx1.8 Dicing", value=f"Rolled {value} out of 100. You **lost** {amount} "
+        embed.add_field(name=f"Over/Underx1.9 Dicing", value=f"Rolled {value} out of 100. You **lost** {amount} "
                                                              f"{currency}.")
         embed.set_footer(text=f"Client Seed: {client_seed}\nNonce: {nonce - 1}")
         return await ctx.send(embed=embed)
@@ -597,12 +626,16 @@ async def over(ctx, currency: str, amount: str):
 
 @bot.command()
 async def dd(ctx, currency: str, amount: str):
-    amount = formatok(amount)
     if ctx.author.id in current_dd_games:
         return await ctx.send(f"{ctx.author.mention}, please finish your older DiceDuel game.")
 
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
+    amount = formatok(amount)
     if currency != "07" and currency != "rs3":
         return
 
@@ -682,13 +715,17 @@ async def dd(ctx, currency: str, amount: str):
 @bot.command()
 @commands.has_role("Host")
 async def d(ctx, currency: str, member: discord.Member, amount: str):
-    amount = formatok(amount)
     if ctx.author.id in current_dd_games:
         return await ctx.send(f"{ctx.author.mention}, please finish your older DiceDuel game.")
     if member.id in current_dd_games:
         return await ctx.send(f"{ctx.author.mention}, please finish your older DiceDuel game.")
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
+    amount = formatok(amount)
     if currency != "07" and currency != "rs3":
         return
     tmp_currency = currency
@@ -701,6 +738,9 @@ async def d(ctx, currency: str, member: discord.Member, amount: str):
     await update_money(ctx.author.id, bets_added, "bets")
     await update_money(ctx.author.id, amount, f"total_{tmp_currency}_bet")
     await update_money(ctx.author.id, amount, f"total_{tmp_currency}_weekly")
+    await update_money(member.id, bets_added, "bets")
+    await update_money(member.id, amount, f"total_{tmp_currency}_bet")
+    await update_money(member.id, amount, f"total_{tmp_currency}_weekly")
     current_dd_games.append(ctx.author.id)
     current_dd_games.append(member.id)
     embed = discord.Embed(color=0x0099cc)
@@ -769,13 +809,17 @@ async def d(ctx, currency: str, member: discord.Member, amount: str):
 @bot.command()
 @commands.has_role("Host")
 async def f(ctx, currency: str, member: discord.Member, amount: str):
-    amount = formatok(amount)
     if ctx.author.id in current_flower_games:
         return await ctx.send(f"{ctx.author.mention}, please finish your older Flower game.")
     if member.id in current_flower_games:
         return await ctx.send(f"{ctx.author.mention}, please finish your older Flower game.")
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
+    amount = formatok(amount)
     if currency != "07" and currency != "rs3":
         return
     tmp_currency = currency
@@ -789,6 +833,9 @@ async def f(ctx, currency: str, member: discord.Member, amount: str):
     await update_money(ctx.author.id, bets_added, "bets")
     await update_money(ctx.author.id, amount, f"total_{tmp_currency}_bet")
     await update_money(ctx.author.id, amount, f"total_{tmp_currency}_weekly")
+    await update_money(member.id, bets_added, "bets")
+    await update_money(member.id, amount, f"total_{tmp_currency}_bet")
+    await update_money(member.id, amount, f"total_{tmp_currency}_weekly")
 
     with open('flowers.json') as json_file:
         data = json.load(json_file)
@@ -938,17 +985,21 @@ async def weekreset(ctx):
     async with bot.db.acquire() as conn:
         await conn.execute("UPDATE rsmoney SET total_rs3_weekly = 0")
     async with bot.db.acquire() as conn:
-        await conn.execute("UPDATE rsmoney SET profit_rs3 = 0")
+        await conn.execute("UPDATE server SET profit_rs3 = 0")
     async with bot.db.acquire() as conn:
-        await conn.execute("UPDATE rsmoney SET profit_osrs = 0")
-    await ctx.send("Weekly wagers have been reset.")
+        await conn.execute("UPDATE server SET profit_osrs = 0")
+    await ctx.send("Weekly wagers and profits have been reset.")
 
 
 @bot.command(aliases=["cold", "rainbow"])
 async def hot(ctx, currency: str, amount: str):
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
     amount = formatok(amount)
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
     if currency != "07" and currency != "rs3":
         return
     name = ctx.author.display_name
@@ -975,13 +1026,13 @@ async def hot(ctx, currency: str, amount: str):
     flower = secrets.choice(data['flowers'])
 
     if ctx.invoked_with == "cold" and flower['value'] == "cold":
-        return await flower_win(ctx, flower, amount, currency, 2)
+        return await flower_win(ctx, flower, amount, currency, 1)
 
     elif ctx.invoked_with == "hot" and flower['value'] == "hot":
-        return await flower_win(ctx, flower, amount, currency, 2)
+        return await flower_win(ctx, flower, amount, currency, 1)
 
     elif ctx.invoked_with == "rainbow" and flower['value'] == "rainbow":
-        return await flower_win(ctx, flower, amount, currency, 4)
+        return await flower_win(ctx, flower, amount, currency, 3)
 
     else:
         await update_money(ctx.author.id, int(amount), f"profit_{tmp_currency}")
@@ -996,11 +1047,15 @@ async def hot(ctx, currency: str, amount: str):
 
 @bot.command()
 async def abc(ctx, currency: str, amount: str):
-    amount = formatok(amount)
     if ctx.author.id in current_flower_games:
         return await ctx.send(f"{ctx.author.mention}, please finish your older ABC Flower game.")
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
+    amount = formatok(amount)
     if currency != "07" and currency != "rs3":
         return
     name = ctx.author.display_name
@@ -1081,9 +1136,13 @@ async def abc(ctx, currency: str, amount: str):
 
 @bot.command()
 async def fp(ctx, currency: str, amount: str):
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
     amount = formatok(amount)
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
     if currency != "07" and currency != "rs3":
         return
     name = ctx.author.display_name
@@ -1209,12 +1268,102 @@ async def fp(ctx, currency: str, amount: str):
 
 
 @bot.command()
-async def bj(ctx, currency: str, amount: str):
+async def jackpot(ctx, currency: str, amount: str):
+    global is_current_jackpot, jackpot_currency, more_than_one, jackpot_pot
+
+    if currency != "07" and currency != "rs3":
+        return
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
     amount = formatok(amount)
+    name = ctx.author.display_name
+
+    if not is_enough(amount, currency):
+        return await not_enough(ctx, name, currency)
+
+    if await get_value(ctx.author.id, currency) < amount:
+        return await not_enough_funds(ctx, name)
+
+    embed = discord.Embed(color=0x0099cc)
+    embed.set_author(name=ctx.author.display_name, icon_url=ctx.message.author.avatar_url)
+
+    if not is_current_jackpot:
+        is_current_jackpot = True
+        jackpot_currency = currency
+        await update_money(ctx.author.id, -amount, currency)
+        embed.add_field(name="Jackpot Added", value=f"You have successfully created a jackpot game and added "
+                                                    f"{formatfromk(amount)} {currency} to the pot.")
+        await ctx.send(embed=embed)
+        bot.loop.create_task(jackpot_game())
+
+    elif is_current_jackpot and jackpot_currency == currency:
+        more_than_one = True
+        await update_money(ctx.author.id, -amount, currency)
+        embed.add_field(name="Jackpot Added", value=f"You have successfully added {formatfromk(amount)} {currency} to "
+                                                    f"the pot.")
+        embed.set_footer(text=f"Current Jackpot: {formatfromk(int((jackpot_pot + amount)*0.95))}")
+        await ctx.send(embed=embed)
+
+    else:
+        embed.add_field(name="Jackpot Added", value=f"Sorry {ctx.author.display_name}, this jackpot is only for "
+                                                    f"{jackpot_currency}.")
+        await ctx.send(embed=embed)
+        return
+
+    if currency == "07":
+        bet = int(amount/10)
+        jackpot_pot += amount
+        jackpot_users.extend(ctx.author.id for _ in range(bet))
+    elif currency == "rs3":
+        bet = int(amount/100)
+        jackpot_pot += amount
+        jackpot_users.extend(ctx.author.id for _ in range(bet))
+
+
+async def jackpot_game():
+    global is_current_jackpot, jackpot_currency, more_than_one, jackpot_pot, jackpot_users
+    await asyncio.sleep(120)
+
+    is_current_jackpot = False
+    embed = discord.Embed(color=0x0099cc)
+    channel = bot.get_channel(stakeland_public)
+
+    if not more_than_one:
+        await update_money(jackpot_users[0], jackpot_pot, jackpot_currency)
+        embed.add_field(name="Jackpot", value=f"There were not enough players to play a jackpot game.  You have been "
+                                              f"refunded {formatfromk(jackpot_pot)} {jackpot_currency}")
+        jackpot_pot = 0
+        return await channel.send(embed=embed)
+
+    tmp_currency = "rs3"
+    if jackpot_currency == "07":
+        tmp_currency = "osrs"
+    more_than_one = False
+    winner = secrets.choice(jackpot_users)
+    await update_money(winner, int(jackpot_pot * 0.95), jackpot_currency)
+    embed.add_field(name="Jackpot", value=f"Congratulations <@{winner}> you have won the jackpot of "
+                                          f"{formatfromk(int(jackpot_pot * 0.95))}.")
+    await update_money(209081432956600320, int(jackpot_pot * 0.05), f"profit_{tmp_currency}")
+    await channel.send(embed=embed)
+    jackpot_users = []
+    jackpot_pot = 0
+
+
+@bot.command()
+async def bj(ctx, currency: str, amount: str):
     if ctx.author.id in current_bj_games:
         return await ctx.send(f"{ctx.author.mention}, please finish your previous Blackjack game.")
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
+    amount = formatok(amount)
     if currency != "07" and currency != "rs3":
         return
     name = ctx.author.display_name
@@ -1293,7 +1442,9 @@ async def bj(ctx, currency: str, amount: str):
                m.author.id == ctx.author.id
 
     winner = ""
-    if get_hand_value(bot_cards) == 21:
+    if get_hand_value(bot_cards) == 21 and get_hand_value(user_cards) == 21:
+        winner = "Tie"
+    elif get_hand_value(bot_cards) == 21:
         winner = "Dealer Wins"
     elif get_hand_value(user_cards) == 21:
         winner = "Player Wins"
@@ -1306,7 +1457,7 @@ async def bj(ctx, currency: str, amount: str):
 
         if msg.content.lower() == "hit":
             user_cards.append(get_card())
-            if 21 == get_hand_value(user_cards) or get_hand_value(user_cards) == "BUST":
+            if get_hand_value(user_cards) == 21 or get_hand_value(user_cards) == "BUST":
                 break
             get_hand_value(user_cards)
             embed = discord.Embed(color=0x0099cc)
@@ -1375,30 +1526,17 @@ async def bj(ctx, currency: str, amount: str):
 
 
 @bot.command()
-async def spam(ctx):
-    for x in range(0, 500):
-        ctx.author = ctx.bot.user
-        bot.loop.create_task(bj.callback(ctx, "07", "100k"))
-        await asyncio.sleep(1)
-        await ctx.send("hit")
-        await asyncio.sleep(1)
-        await ctx.send("hit")
-        await asyncio.sleep(1)
-        await ctx.send("hit")
-        await asyncio.sleep(1)
-        await ctx.send("hit")
-        await asyncio.sleep(2)
-
-
-
-@bot.command()
 async def swap(ctx, currency: str, amount: str):
-    amount = formatok(amount)
     if ctx.author.id in current_swaps:
         return await ctx.send(f"{ctx.author.mention}, please finish your older swap request.")
 
-    if len(str(float(amount)).split(".")[1]) > 2:
-        return
+    try:
+        if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
+            return
+    except:
+        if not isinstance(Decimal(amount), Decimal) and not isinstance(Decimal(amount[-1]), Decimal):
+            return
+    amount = formatok(amount)
     if currency != "07" and currency != "rs3":
         return
 
@@ -1418,7 +1556,7 @@ async def swap(ctx, currency: str, amount: str):
 
     else:
         amount /= rs3_osrs_rate
-    amount = round(amount, 2)
+    amount = int(amount)
 
     embed = discord.Embed(color=0x0099cc)
     embed.add_field(name="Swapping", value=f"For {formatfromk(original_amount)} {currency} you will recieve "
@@ -1451,7 +1589,7 @@ async def swap(ctx, currency: str, amount: str):
         await ctx.send(embed=embed)
 
 
-@bot.command()
+@bot.command(aliases=["stats"])
 async def wager(ctx, member: discord.Member = None):
     user = ctx.author
     if member is not None and member is not ctx.author:
@@ -1508,7 +1646,12 @@ async def topwager(ctx, currency: str):
     end = start + timedelta(days=6, hours=17)
     difference = str(end - today)
     days = difference.split(",")[0] + " "
-    if len(str(days)) > 0:
+    if "," in str(difference):
+        if int(str(days).split(" ")[0]) == 0:
+            days = ""
+        elif int(str(days).split(" ")[0]) < 0:
+            days = "6 days"
+    else:
         days = ""
     try:
         try:
@@ -1542,7 +1685,7 @@ async def topwager(ctx, currency: str):
 
 @bot.command(aliases=["competition"])
 async def top(ctx, currency: str):
-    if currency != "07" and currency != "rs3":
+    if currency != "07" and currency != "rs3" and currency != "total":
         return
 
     tz = timezone('EST')
@@ -1552,27 +1695,73 @@ async def top(ctx, currency: str):
     dt = datetime.strptime(day, '%Y-%m-%d')
     start = dt - timedelta(days=dt.weekday())
     end = start + timedelta(days=6, hours=17)
-    difference = end - today
-    seconds = difference.total_seconds()
-    mins, seconds = divmod(seconds, 60)
-    hours, mins = divmod(mins, 60)
-    days, hours = divmod(hours, 24)
-    difference = f"{days} {hours} {mins} {seconds}"
+    difference = str(end - today)
+    days = difference.split(",")[0] + " "
+    if "," in str(difference):
+        if int(str(days).split(" ")[0]) == 0:
+            days = ""
+        elif int(str(days).split(" ")[0]) < 0:
+            days = "6 days"
+    else:
+        days = ""
+    try:
+        try:
+            hours = difference.split(",")[1].split(":")[0] + " hours "
+        except:
+            hours = difference.split(":")[0] + " hours "
+    except:
+        hours = ""
+    try:
+        minutes = difference.split(":")[1] + " minutes "
+    except:
+        minutes = ""
+    try:
+        seconds = difference.split(":")[2] + " seconds "
+    except:
+        seconds = ""
+    difference = f"{days}{hours}{minutes}{seconds}"
 
-    tmp_currency = "total_rs3_weekly"
-    if currency == "07":
-        tmp_currency = "total_osrs_weekly"
+    if currency == "total":
+        currency = "Total"
+        top_overall = {}
+        async with bot.db.acquire() as conn:
+            top_osrs = await conn.fetch(f"SELECT * FROM rsmoney order by total_osrs_weekly desc limit 5")
+        async with bot.db.acquire() as conn:
+            top_rs3 = await conn.fetch(f"SELECT * FROM rsmoney order by total_rs3_weekly desc limit 5")
+        for tops in top_osrs:
+            top_overall[tops['id']] = 6 * tops['total_osrs_weekly']
+            top_overall[tops['id']] += tops['total_rs3_weekly']
+        for tops in top_rs3:
+            if tops['id'] not in top_overall:
+                top_overall[tops['id']] = 6 * tops['total_osrs_weekly']
+                top_overall[tops['id']] += tops['total_rs3_weekly']
 
-    async with bot.db.acquire() as conn:
-        records = await conn.fetch(f"SELECT * FROM rsmoney order by {tmp_currency} desc limit 5")
-    count = 0
-    users = ""
-    values = ""
-    for record in records:
-        count += 1
-        msg = formatfromk(record[tmp_currency])
-        users += f"{count} <@{record['id']}>\n"
-        values += f"{msg}\n"
+        top_overall = sorted(top_overall.items(), key=operator.itemgetter(1), reverse=True)
+        count = 0
+        users = ""
+        values = ""
+        for tops in top_overall:
+            count += 1
+            if count > 5:
+                break
+            msg = formatfromk(tops[1])
+            users += f"{count} <@{tops[0]}>\n"
+            values += f"{msg}\n"
+
+    else:
+        tmp_currency = "total_rs3_weekly"
+        if currency == "07":
+            tmp_currency = "total_osrs_weekly"
+        async with bot.db.acquire() as conn:
+            records = await conn.fetch(f"SELECT * FROM rsmoney order by {tmp_currency} desc limit 5")
+        count = 0
+        users = ""
+        values = ""
+        for record in records:
+            count += 1
+            msg = formatfromk(record[tmp_currency])
+            users += f"{count} <@{record['id']}>\n"
+            values += f"{msg}\n"
     embed = discord.Embed(color=0x0099cc)
     embed.set_author(name=f"Top Wagers {currency}")
     embed.add_field(name="**User**", value=users, inline=True)
@@ -1601,13 +1790,24 @@ async def profit(ctx):
 
 
 @bot.command()
+@commands.check(is_staky)
+async def bank(ctx):
+    async with bot.db.acquire() as conn:
+        profits_rs3 = await conn.fetchrow(f"SELECT profit_rs3_total FROM server")
+    async with bot.db.acquire() as conn:
+        profits_osrs = await conn.fetchrow(f"SELECT profit_osrs_total FROM server")
+    embed = discord.Embed(color=0x0099cc)
+    embed.set_author(name="Stakeland Profit")
+    embed.add_field(name="RS3 Total Profit", value=formatfromk(profits_rs3["profit_rs3_total"]))
+    embed.add_field(name="07 Total Profit", value=formatfromk(profits_osrs["profit_osrs_total"]), inline=True)
+    await ctx.send(embed=embed)
+
+
+@bot.command()
 async def about(ctx):
     info = await bot.application_info()
     embed = discord.Embed(color=0xffff00)
-    embed.set_author(name=f"{info.name}, by {info.owner.name}#{info.owner.discriminator}")
-    embed.add_field(name="ABOUT", value="For my random generated numbers, I used the **secrets** module in python.\n"
-                         "The secrets module is used for generating cryptographically strong random numbers. "
-                                        "Feel free to look into it.\n")
+    embed.set_author(name=f"{info.name}, created by {info.owner.name}#{info.owner.discriminator}")
     embed.add_field(name="HELP", value="My help command created by:\n"
                                        "-Tmpod#0836 https://gitlab.com/Tmpod \n"
                                        "-Aika#7235 https://gitlab.com/koyagami")
