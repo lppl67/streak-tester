@@ -156,6 +156,19 @@ async def weekreset(ctx):
     await ctx.send("Weekly wagers have been reset.")
 
 
+@bot.command()
+async def ping(ctx):
+    start = time.monotonic()
+    msg = await ctx.send('Pinging...')
+    millis = (time.monotonic() - start) * 1000
+
+    # Since sharded bots will have more than one latency, this will average them if needed.
+    heartbeat = ctx.bot.latency * 1000
+    embed = discord.Embed(color=0x0099cc)
+    embed.add_field(name="Ping", value=f"💓Heartbeat: {heartbeat:,.2f}ms\t💬ACK: {millis:,.2f}ms.")
+    await msg.edit(embed=embed)
+
+
 bot.load_extension("libneko.extras.superuser")
 bot.load_extension("libneko.extras.help")
 bot.run(TOKEN)
