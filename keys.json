@@ -1,0 +1,44 @@
+{
+    "keys": [
+        {
+            "prefix": "=",
+            "value": "10",
+            "currency": "07"
+        },
+        {
+            "prefix": "!",
+            "value": "50",
+            "currency": "07"
+        },
+        {
+            "prefix": "-",
+            "value": "90",
+            "currency": "07"
+        },
+        {
+            "prefix": "\\",
+            "value": "180",
+            "currency": "07"
+        },
+        {
+            "prefix": ">",
+            "value": "200",
+            "currency": "07"
+        },
+        {
+            "prefix": "+",
+            "value": "280",
+            "currency": "07"
+        },
+        {
+            "prefix": "(",
+            "value": "1000",
+            "currency": "rs3"
+        },
+        {
+            "prefix": "#",
+            "value": "2800",
+            "currency": "07"
+        }
+    ]
+}
