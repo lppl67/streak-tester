@@ -7,11 +7,11 @@ import json
 from decimal import Decimal
 import time
 import requests
-# from discord.ext import commands
-# import secrets
+from discord.ext import commands
+import secrets
+import asyncio
 # from datetime import datetime, timedelta
 # from pytz import timezone
-# import asyncio
 # import operator
 
 
@@ -94,8 +94,17 @@ def format_from_k(amount: int):
     return str(amount)+"M"
 
 
+def is_host(ctx):
+    return any(role.id == 498287046989709322 for role in ctx.author.roles)
+
+
+def is_ment(ctx):
+    return ctx.author.id == 276918858600939520 or ctx.author.id == 311772111255633920 \
+           or ctx.author.id == 503176219089436672
+
+
+# @commands.check(is_host)
 @bot.command()
-# @commands.has_role("Host")
 async def addwager(ctx, currency, member: discord.Member, amount: str):
     try:
         if "." in str(Decimal(amount[:-1])) and len(str(Decimal(amount[:-1])).split(".")[1]) > 2:
@@ -147,8 +156,8 @@ async def thisweek(ctx, member: discord.Member = None):
     await ctx.send(embed=embed)
 
 
-@bot.command()
 # @commands.check(is_ment)
+@bot.command()
 async def weekreset(ctx):
     async with bot.db.acquire() as conn:
         await conn.execute('''UPDATE rsmoney 
@@ -170,6 +179,7 @@ async def ping(ctx):
     await msg.edit(embed=embed)
 
 
+# @commands.check(is_host)
 @bot.command()
 async def g(ctx, member: discord.Member, amount: int):
     with open('keys.json') as json_file:
@@ -183,7 +193,18 @@ async def g(ctx, member: discord.Member, amount: int):
     embed = discord.Embed(color=0x0099cc)
     embed.set_author(name=member.display_name, icon_url=member.avatar_url)
     embed.add_field(name=f"Wager Update", value=f"Successfully added {format_from_k(amount)} {currency} to "
-                                                f"{member.display_name}'s wager")
+                                                f"{member.display_name}'s wager.")
+    await ctx.send(embed=embed)
+
+
+# @commands.check(is_host)
+@bot.command()
+async def dd(ctx, first_user: discord.Member, second_user: discord.Member, amount: Decimal):
+    await update_money(first_user.id, format_to_k(amount / 2), "07")
+    await update_money(second_user.id, format_to_k(amount / 2), "07")
+    embed = discord.Embed(color=0x0099cc)
+    embed.add_field(name="Wager Update", value=f"{amount / 2} 07 wager was added to {first_user.display_name} and "
+                                               f"{second_user.display_name}.")
     await ctx.send(embed=embed)
 
 
