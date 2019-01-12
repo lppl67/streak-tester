@@ -202,12 +202,12 @@ async def g(ctx, member: discord.Member, amount: int):
 async def dd(ctx, first_user: discord.Member, second_user: discord.Member, amount: str):
     if not isinstance(Decimal(amount), Decimal):
         return
-    amount = Decimal(amount)
-    await update_money(first_user.id, format_to_k(amount / 2), "07")
-    await update_money(second_user.id, format_to_k(amount / 2), "07")
+    amount = int(format_to_k(amount) / 2)
+    await update_money(first_user.id, amount, "07")
+    await update_money(second_user.id, amount, "07")
     embed = discord.Embed(color=0x0099cc)
-    embed.add_field(name="Wager Update", value=f"{amount / 2} 07 wager was added to {first_user.display_name} and "
-                                               f"{second_user.display_name}.")
+    embed.add_field(name="Wager Update", value=f"{format_from_k(amount)} 07 wager was added to "
+                                               f"{first_user.display_name} and {second_user.display_name}.")
     await ctx.send(embed=embed)
 
 
