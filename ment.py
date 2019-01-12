@@ -199,7 +199,10 @@ async def g(ctx, member: discord.Member, amount: int):
 
 # @commands.check(is_host)
 @bot.command()
-async def dd(ctx, first_user: discord.Member, second_user: discord.Member, amount: Decimal):
+async def dd(ctx, first_user: discord.Member, second_user: discord.Member, amount: str):
+    if not isinstance(Decimal(amount), Decimal):
+        return
+    amount = Decimal(amount)
     await update_money(first_user.id, format_to_k(amount / 2), "07")
     await update_money(second_user.id, format_to_k(amount / 2), "07")
     embed = discord.Embed(color=0x0099cc)
