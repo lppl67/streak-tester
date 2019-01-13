@@ -134,7 +134,7 @@ async def wager(ctx, member: discord.Member = None):
     osrs_bet = await get_value(user.id, "total_osrs_bet")
 
     embed = discord.Embed(color=0x0099cc)
-    embed.set_author(name=user.display_name, icon_url=ctx.message.author.avatar_url)
+    embed.set_author(name=user.display_name, icon_url=user.avatar_url)
     embed.add_field(name="RS3 Wager", value=str(format_from_k(rs3_bet)), inline=True)
     embed.add_field(name="07 Wager", value=str(format_from_k(osrs_bet)), inline=True)
     await ctx.send(embed=embed)
@@ -150,7 +150,7 @@ async def thisweek(ctx, member: discord.Member = None):
     osrs_bet = await get_value(user.id, "total_osrs_weekly")
 
     embed = discord.Embed(color=0x0099cc)
-    embed.set_author(name=user.display_name, icon_url=ctx.message.author.avatar_url)
+    embed.set_author(name=user.display_name, icon_url=user.avatar_url)
     embed.add_field(name="RS3 Weekly", value=str(format_from_k(rs3_bet)), inline=True)
     embed.add_field(name="07 Weekly", value=str(format_from_k(osrs_bet)), inline=True)
     await ctx.send(embed=embed)
