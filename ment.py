@@ -210,6 +210,22 @@ async def update_wager(ctx, member: discord.Member, amount: int, currency: str):
     await ctx.send(embed=embed)
 
 
+async def addweek(ctx, amount: str, member: discord.Member, currency: str):
+    if currency != "07" and currency != "rs3":
+        return
+    async with bot.db.acquire() as conn:
+        if currency == "07":
+            await conn.execute('UPDATE rsmoney SET total_osrs_weekly = total_osrs_weekly + $1 WHERE id=$2',
+                               format_to_k(amount), member.id)
+        else:
+            await conn.execute('UPDATE rsmoney SET total_rs3_weekly = total_rs3_weekly + $1 WHERE id=$2',
+                               format_to_k(amount), member.id)
+    embed = discord.Embed(color=0x0099cc)
+    embed.set_author(name=member.display_name, icon_url=member.avatar_url)
+    embed.add_field(name=f"Wager Update", value=f"Successfully added {format_from_k(amount)} {currency} to "
+    f"{member.display_name}'s weekly wager.")
+    await ctx.send(embed=embed)
+
 # @commands.check(is_host)
 @bot.command()
 async def g(ctx, member: discord.Member, amount: int):
