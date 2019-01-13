@@ -156,6 +156,26 @@ async def thisweek(ctx, member: discord.Member = None):
     await ctx.send(embed=embed)
 
 
+@bot.command()
+async def top(ctx, currency: str):
+    if currency != "thisweek" and currency != "total" and currency != "total":
+        return
+    tmp_currency = "total_osrs_bet"
+    if currency == "thisweek":
+        tmp_currency = "total_osrs_weekly"
+    async with bot.db.acquire() as conn:
+        records = await conn.fetch(f"SELECT * FROM rsmoney order by {tmp_currency} desc limit 5")
+    count = 0
+    msg = ""
+    for record in records:
+        count += 1
+        msg += f"{count} <@{record['id']}> {format_from_k(record[tmp_currency])}\n"
+    embed = discord.Embed(color=0x0099cc)
+    embed.set_author(name=f"Top Wagers {currency}")
+    embed.add_field(name="**User**", value=msg, inline=True)
+    await ctx.send(embed=embed)
+
+
 # @commands.check(is_ment)
 @bot.command()
 async def weekreset(ctx):
