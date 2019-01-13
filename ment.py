@@ -171,8 +171,10 @@ async def top(ctx, currency: str):
         count += 1
         msg += f"{count} <@{record['id']}> {format_from_k(record[tmp_currency])}\n"
     embed = discord.Embed(color=0x0099cc)
-    embed.set_author(name=f"Top Wagers {currency}")
-    embed.add_field(name="**User**", value=msg, inline=True)
+    tmp_currency = "This Week"
+    if currency == "total":
+        tmp_currency = "Overall"
+    embed.add_field(name=f"Top Wagers {tmp_currency}", value=msg, inline=True)
     await ctx.send(embed=embed)
 
 
