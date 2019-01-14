@@ -6,13 +6,7 @@ import ssl
 import json
 from decimal import Decimal
 import time
-# import requests
-# from discord.ext import commands
-# import secrets
-# import asyncio
-# from datetime import datetime, timedelta
-# from pytz import timezone
-# import operator
+from discord.ext import commands
 
 
 TOKEN = os.environ['token']  # The token is also substituted for security reasons

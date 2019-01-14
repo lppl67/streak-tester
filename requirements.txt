@@ -2,6 +2,3 @@ git+https://github.com/rapptz/discord.py@rewrite
 git+https://gitlab.com/koyagami/libneko
 asyncpg
 discord
-aiofiles
-pytz
-requests
