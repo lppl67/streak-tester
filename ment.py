@@ -100,10 +100,10 @@ def is_host(ctx):
 
 def is_ment(ctx):
     return ctx.author.id == 276918858600939520 or ctx.author.id == 311772111255633920 \
-           or ctx.author.id == 503176219089436672
+           or ctx.author.id == 503176219089436672 or ctx.author.id == 303152083891257344
 
 
-# @commands.check(is_host)
+@commands.check(is_host)
 @bot.command()
 async def addwager(ctx, currency, member: discord.Member, amount: str):
     try:
@@ -124,7 +124,7 @@ async def addwager(ctx, currency, member: discord.Member, amount: str):
     await ctx.send(embed=embed)
 
 
-# @commands.check(is_host)
+@commands.check(is_host)
 @bot.command()
 async def addweek(ctx, currency: str, member: discord.Member, amount: str):
     try:
@@ -205,7 +205,7 @@ async def top(ctx, currency: str):
     await ctx.send(embed=embed)
 
 
-# @commands.check(is_ment)
+@commands.check(is_ment)
 @bot.command()
 async def weekreset(ctx):
     async with bot.db.acquire() as conn:
@@ -237,7 +237,7 @@ async def update_wager(ctx, member: discord.Member, amount: int, currency: str):
     await ctx.send(embed=embed)
 
 
-# @commands.check(is_host)
+@commands.check(is_host)
 @bot.command()
 async def g(ctx, member: discord.Member, amount: int):
     with open('keys.json') as json_file:
@@ -248,7 +248,7 @@ async def g(ctx, member: discord.Member, amount: int):
             return await update_wager(ctx, member, amount * int(keys["value"]), keys["currency"])
 
 
-# @commands.check(is_host)
+@commands.check(is_host)
 @bot.command()
 async def gb(ctx, box: str, amount: int, member: discord.Member):
 
@@ -265,7 +265,7 @@ async def gb(ctx, box: str, amount: int, member: discord.Member):
         await update_wager(ctx, member, amount * 4100, "07")
 
 
-# @commands.check(is_host)
+@commands.check(is_host)
 @bot.command()
 async def dd(ctx, first_user: discord.Member, second_user: discord.Member, amount: str):
     if not isinstance(Decimal(amount), Decimal):
@@ -279,7 +279,6 @@ async def dd(ctx, first_user: discord.Member, second_user: discord.Member, amoun
     await ctx.send(embed=embed)
 
 
-bot.load_extension("libneko.extras.superuser")
 bot.load_extension("libneko.extras.help")
 bot.run(TOKEN)
 # https://discordapp.com/oauth2/authorize?client_id=502940842143514633&scope=bot&permissions=0
